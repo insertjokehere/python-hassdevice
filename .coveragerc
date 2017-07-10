@@ -1,0 +1,16 @@
+[paths]
+source =
+   src/hassdevice
+   */site-packages/hassdevice
+
+[run]
+branch = true
+source =
+    hassdevice
+    tests
+parallel = true
+
+[report]
+show_missing = true
+precision = 2
+omit = *migrations*
