@@ -1,3 +1,6 @@
+import json
+
+
 class Switch():
     """
     An MQTT switch
@@ -30,7 +33,7 @@ class Switch():
 
     def connect(self, mqtt_client, discovery_prefix="homeassistant", node_id=None):
         """
-        Connect this device MQTT
+        Connect this device to an MQTT broker
 
         :param mqtt_client: A connected MQTT client
         :param discovery_prefix: The discovery prefix set in the HomeAssistant config
