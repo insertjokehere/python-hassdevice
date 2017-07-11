@@ -1,5 +1,10 @@
 import json
 
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
 
 class Switch():
     """
@@ -11,12 +16,12 @@ class Switch():
         :param name: The display name to use in HomeAssistant
         :param entity_id: The entity_id to use in HomeAssistant
         """
-
         self.name = name
+        self.entity_id = entity_id
 
         self.discovery_prefix = None
         self.node_id = None
-        self.client
+        self.client = None
 
         self._state = None
 
@@ -47,9 +52,11 @@ class Switch():
         self.client.subscribe(self.command_topic)
 
         self.client.publish(self.config_topic, json.dumps(self.config), retain=self.retain)
+        logger.debug("Connected to broker, sent config to {}".format(self.config_topic))
 
     def _on_command(self, client, userdata, message):
         new_state = message.payload.decode('utf-8')
+        logger.debug("Got command for new state {}, current state {}".format(new_state, self.state))
         if self._is_valid_state(new_state) and new_state != self.state:
             self.on_state_change(new_state)
 
@@ -80,6 +87,7 @@ class Switch():
             raise ValueError("New state must be one of {}, {}".format(self.payload_on, self.payload_off))
 
         self._state = value
+        logger.debug("Publishing new state {}".format(value))
         self.client.publish(self.state_topic, value, retain=self.retain)
 
     @property
@@ -92,15 +100,15 @@ class Switch():
 
     @property
     def config_topic(self):
-        return "/".join(self.base_topic, "config")
+        return "/".join([self.base_topic, "config"])
 
     @property
     def state_topic(self):
-        return "/".join(self.base_topic, "state")
+        return "/".join([self.base_topic, "state"])
 
     @property
     def command_topic(self):
-        return "/".join(self.base_topic, "command")
+        return "/".join([self.base_topic, "command"])
 
     @property
     def payload_on(self):
