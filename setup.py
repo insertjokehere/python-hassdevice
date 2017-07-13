@@ -25,7 +25,7 @@ def read(*names, **kwargs):
 setup(
     name='hassdevice',
     version='0.0.1',
-    license='BSD',
+    license='Apache',
     description='A library for building MQTT devices for HomeAssistant',
     long_description='%s\n%s' % (
         re.compile('^.. start-badges.*^.. end-badges', re.M | re.S).sub('', read('README.rst')),
