@@ -1,3 +1,4 @@
+import os
 import logging
 
 import paho.mqtt.client as mqtt
@@ -54,7 +55,7 @@ class SimpleMQTTHost:
 
             if self.mqtt_tls_cacert is None and self.mqtt_tls_certfile is not None:
                 logger.warning("mqtt_tls_cacert not set, ignoring mqtt_tls_certfile setting")
-            else:
+            elif self.mqtt_tls_cacert is not None:
                 self.mqtt_client.tls_set(
                     ca_certs=self.mqtt_tls_cacert,
                     keyfile=self.mqtt_tls_keyfile,
@@ -79,7 +80,6 @@ class SimpleMQTTHost:
                 setattr(self, arg, vargs[arg])
 
     def configure_from_env(self, prefix=""):
-        vargs = vars(args)
         for arg in self.CONFIGURABLE_OPTIONS:
             arg = prefix + arg.upper()
             if arg in os.environ:
