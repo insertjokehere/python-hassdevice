@@ -85,13 +85,20 @@ class SimpleMQTTHost:
             if arg in os.environ:
                 setattr(self, arg, os.environ[arg])
 
+    def configure_from_docker_secrets(self):
+        for arg in self.CONFIGURABLE_OPTIONS:
+            spath = os.path.join('/run/secrets', arg)
+            if os.path.exists(spath):
+                value = open(spath).read().decode('utf-8').strip()
+                setattr(self, arg, value)
+
     @classmethod
     def add_argparse_params(cls, parser):
         parser.add_argument("--mqtt-client-id", default="", required=False)
         parser.add_argument("--mqtt-username", default=None, required=False)
         parser.add_argument("--mqtt-password", default=None, required=False)
         parser.add_argument("--mqtt-host", default="localhost", required=False)
-        parser.add_argument("--mqtt-post", default=1883, type=int, required=False)
+        parser.add_argument("--mqtt-port", default=1883, type=int, required=False)
         parser.add_argument("--mqtt-tls-cacert", default=None, required=False)
         parser.add_argument("--mqtt-tls-certfile", default=None, required=False)
         parser.add_argument("--mqtt-tls-keyfile", default=None, required=False)
