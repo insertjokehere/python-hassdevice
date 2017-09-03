@@ -36,9 +36,9 @@ Overview
     :alt: PyPI Package latest release
     :target: https://pypi.python.org/pypi/hassdevice
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/insertjokehere/python-hassdevice/v0.0.2.svg
+.. |commits-since| image:: https://img.shields.io/github/commits-since/insertjokehere/python-hassdevice/v0.1.0.svg
     :alt: Commits since latest release
-    :target: https://github.com/insertjokehere/python-hassdevice/compare/v0.0.2...master
+    :target: https://github.com/insertjokehere/python-hassdevice/compare/v0.1.0...master
 
 .. |wheel| image:: https://img.shields.io/pypi/wheel/hassdevice.svg
     :alt: PyPI Wheel
