@@ -1,7 +1,12 @@
 import os
 import logging
-
+import ssl
 import paho.mqtt.client as mqtt
+
+try:
+    TLS_VERSION = ssl.PROTOCOL_TLS
+except AttributeError:
+    TLS_VERSION = ssl.PROTOCOL_TLSv1
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +64,8 @@ class SimpleMQTTHost:
                 self.mqtt_client.tls_set(
                     ca_certs=self.mqtt_tls_cacert,
                     keyfile=self.mqtt_tls_keyfile,
-                    certfile=self.mqtt_tls_certfile
+                    certfile=self.mqtt_tls_certfile,
+                    tls_version=TLS_VERSION
                 )
 
         self.mqtt_client.connect(self.mqtt_host, self.mqtt_port)
