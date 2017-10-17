@@ -95,7 +95,7 @@ class SimpleMQTTHost:
         for arg in self.CONFIGURABLE_OPTIONS:
             spath = os.path.join('/run/secrets', arg)
             if os.path.exists(spath):
-                value = open(spath).read().decode('utf-8').strip()
+                value = open(spath).read().strip()
                 setattr(self, arg, value)
 
     @classmethod
