@@ -24,7 +24,7 @@ def read(*names, **kwargs):
 
 setup(
     name='hassdevice',
-    version='0.1.1',
+    version='0.1.2',
     license='Apache',
     description='A library for building MQTT devices for HomeAssistant',
     long_description='%s\n%s' % (
