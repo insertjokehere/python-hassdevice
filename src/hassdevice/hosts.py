@@ -43,8 +43,26 @@ class SimpleMQTTHost:
         self.mqtt_tls_certfile = None
         self.mqtt_tls_keyfile = None
 
+        self._connected = False
+        self._pending_devices = []
+
     def add_device(self, device):
-        device.connect(self.mqtt_client, self.discovery_prefix, self.node_id)
+        if self._connected:
+            device.connect(self.mqtt_client, self.discovery_prefix, self.node_id)
+        else:
+            self._pending_devices.append(device)
+
+    def _on_connect(self, client, userdata, flags, rc):
+        if rc == 0:
+            self._connected = True
+            while len(self._pending_devices > 0) and self._connected:
+                device = self._pending_devices.pop()
+                self.add_device(device)
+        else:
+            logger.warning("Connection error: {}".format(rc))
+
+    def _on_disconnect(self, client, userdata, rc):
+        self._connected = False
 
     def start(self, block=True):
         if self.mqtt_client is None:
@@ -52,6 +70,9 @@ class SimpleMQTTHost:
                 client_id=self.mqtt_client_id,
                 clean_session=self.mqtt_client_id == ""
             )
+
+            self.mqtt_client.on_connect = self._on_connect
+            self.mqtt_client.on_disconnect = self._on_disconnect
 
             if self.mqtt_username is not None:
                 self.mqtt_client.username_pw_set(
