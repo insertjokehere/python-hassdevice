@@ -55,7 +55,7 @@ class SimpleMQTTHost:
     def _on_connect(self, client, userdata, flags, rc):
         if rc == 0:
             self._connected = True
-            while len(self._pending_devices > 0) and self._connected:
+            while len(self._pending_devices) > 0 and self._connected:
                 device = self._pending_devices.pop()
                 self.add_device(device)
         else:
