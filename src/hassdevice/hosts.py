@@ -103,7 +103,7 @@ class SimpleMQTTHost:
     def configure_from_args(self, args):
         vargs = vars(args)
         for arg in self.CONFIGURABLE_OPTIONS:
-            if arg in vargs:
+            if arg in vargs and vargs[arg] is not None:
                 setattr(self, arg, vargs[arg])
 
     def configure_from_env(self, prefix=""):
@@ -121,14 +121,14 @@ class SimpleMQTTHost:
 
     @classmethod
     def add_argparse_params(cls, parser):
-        parser.add_argument("--mqtt-client-id", default="", required=False)
+        parser.add_argument("--mqtt-client-id", default=None, required=False)
         parser.add_argument("--mqtt-username", default=None, required=False)
         parser.add_argument("--mqtt-password", default=None, required=False)
-        parser.add_argument("--mqtt-host", default="localhost", required=False)
-        parser.add_argument("--mqtt-port", default=1883, type=int, required=False)
+        parser.add_argument("--mqtt-host", default=None, required=False)
+        parser.add_argument("--mqtt-port", default=None, type=int, required=False)
         parser.add_argument("--mqtt-tls-cacert", default=None, required=False)
         parser.add_argument("--mqtt-tls-certfile", default=None, required=False)
         parser.add_argument("--mqtt-tls-keyfile", default=None, required=False)
 
-        parser.add_argument("--discovery-prefix", default="homeassistant", required=False)
+        parser.add_argument("--discovery-prefix", default=None, required=False)
         parser.add_argument("--node-id", default=None, required=False)
