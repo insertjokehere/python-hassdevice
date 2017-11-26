@@ -26,6 +26,10 @@ class BaseDevice:
         self._config = {}
 
     @property
+    def component(self):
+        raise NotImplemented
+
+    @property
     def base_config(self):
         return {
             'name': self.name,
@@ -57,7 +61,6 @@ class BaseDevice:
 
         if state_topic is not None and state_topic_key is not None:
             self._state_topics[name] = state_topic
-            self._config[state_topic_key] = state_topic
             setattr(self, "get_" + name, functools.partial(self._get_state, name))
             setattr(self, "set_" + name, functools.partial(self._set_state, name))
 
@@ -67,6 +70,15 @@ class BaseDevice:
 
     def _set_state(self, state_name, value):
         self._state_values[state_name] = value
+        logger.debug("publishing {} to {}".format(
+            value,
+            self._expand_topic(self._state_topics[state_name])
+        ))
+        self.client.publish(
+            self._expand_topic(self._state_topics[state_name]),
+            value,
+            retain=self.retain
+        )
 
     def _get_state(self, state_name):
         return self._state_values[state_name]
@@ -79,7 +91,7 @@ class BaseDevice:
         if self.discovery_prefix is None:
             raise ValueError("Must call .connect() first")
 
-        path = filter(lambda x: x is not None, [self.discovery_prefix, "switch", self.node_id, self.entity_id])
+        path = filter(lambda x: x is not None, [self.discovery_prefix, self.component, self.node_id, self.entity_id])
         return "/".join(path)
 
     @property
@@ -105,13 +117,20 @@ class BaseDevice:
         self.node_id = node_id
         self.client = mqtt_client
 
+        for name, topic in self._state_topics.items():
+            self._config[name] = self._expand_topic(topic)
+
         for name, topic in self._command_topics.items():
             t = self._expand_topic(topic)
+            self._config[name] = t
             self.client.message_callback_add(t, functools.partial(self._on_command, name))
             self.client.subscribe(t)
 
         self.client.publish(self.config_topic, json.dumps(self.config), retain=self.retain)
-        logger.debug("Connected to broker, sent config to {}".format(self.config_topic))
+        logger.debug("Connected to broker, sent config {} to {}".format(
+            self.config,
+            self.config_topic
+        ))
 
     def _on_command(self, state_name, client, userdata, message):
         new_state = message.payload.decode('utf-8')
