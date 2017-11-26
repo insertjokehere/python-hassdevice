@@ -1,14 +1,12 @@
 import json
 import logging
+import functools
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-class Switch():
-    """
-    An MQTT switch
-    """
+class BaseDevice:
 
     def __init__(self, name, entity_id):
         """
@@ -22,18 +20,78 @@ class Switch():
         self.node_id = None
         self.client = None
 
-        self._state = None
+        self._state_values = {}
+        self._state_topics = {}
+        self._command_topics = {}
+        self._config = {}
+
+    @property
+    def base_config(self):
+        return {
+            'name': self.name,
+            'retain': self.retain
+        }
 
     @property
     def config(self):
-        return {
-            'name': self.name,
-            'state_topic': self.state_topic,
-            'command_topic': self.command_topic,
-            'payload_on': self.payload_on,
-            'payload_off': self.payload_off,
-            'retain': self.retain
-        }
+        cfg = self.base_config
+        cfg.update(self._config)
+        return cfg
+
+    def add_state(self, name, state_topic=None, state_topic_key=None, command_topic=None, command_topic_key=None):
+        """
+        Adds a new state handler for the device.
+
+        If state_topic and state_topic_key are not None:
+        * Advertise state_topic in the device topic as state_topic_key
+        * Add get_<name> function to the instance, that will return the current
+          value of the state
+        * Add set_<name> function to the instance, that will publish a new value
+          to the broker
+
+        If command_topic and command_topic_key are not None:
+        * Will subscribe to command_topic
+        * You should override on_<name>_change, will be called when a command is recieved
+        """
+        self._state_values[name] = None
+
+        if state_topic is not None and state_topic_key is not None:
+            self._state_topics[name] = state_topic
+            self._config[state_topic_key] = state_topic
+            setattr(self, "get_" + name, functools.partial(self._get_state, name))
+            setattr(self, "set_" + name, functools.partial(self._set_state, name))
+
+        if command_topic is not None and command_topic_key is not None:
+            self._command_topics[name] = command_topic
+            self._config[command_topic_key] = command_topic
+
+    def _set_state(self, state_name, value):
+        self._state_values[state_name] = value
+
+    def _get_state(self, state_name):
+        return self._state_values[state_name]
+
+    def _expand_topic(self, topic):
+        return '/'.join([self.base_topic, topic])
+
+    @property
+    def base_topic(self):
+        if self.discovery_prefix is None:
+            raise ValueError("Must call .connect() first")
+
+        path = filter(lambda x: x is not None, [self.discovery_prefix, "switch", self.node_id, self.entity_id])
+        return "/".join(path)
+
+    @property
+    def config_topic(self):
+        return "/".join([self.base_topic, "config"])
+
+    @property
+    def retain(self):
+        """
+        Should the messages sent to the broker have the 'retain' flag set. Defaults to ``True``
+        """
+        return True
 
     def connect(self, mqtt_client, discovery_prefix="homeassistant", node_id=None):
         """
@@ -47,19 +105,55 @@ class Switch():
         self.node_id = node_id
         self.client = mqtt_client
 
-        self.client.message_callback_add(self.command_topic, self._on_command)
-        self.client.subscribe(self.command_topic)
+        for name, topic in self._command_topics.items():
+            t = self._expand_topic(topic)
+            self.client.message_callback_add(t, functools.partial(self._on_command, name))
+            self.client.subscribe(t)
 
         self.client.publish(self.config_topic, json.dumps(self.config), retain=self.retain)
         logger.debug("Connected to broker, sent config to {}".format(self.config_topic))
 
-    def _on_command(self, client, userdata, message):
+    def _on_command(self, state_name, client, userdata, message):
         new_state = message.payload.decode('utf-8')
-        logger.debug("Got command for new state {}, current state {}".format(new_state, self.state))
-        if self._is_valid_state(new_state) and new_state != self.state:
-            self.on_state_change(new_state)
+        logger.debug("Got command for new state {} {}, current state {}".format(new_state, state_name, self._state_values[state_name]))
 
-    def _is_valid_state(self, state):
+        if hasattr(self, 'is_valid_{}'.format(state_name)):
+            is_valid = getattr(self, 'is_valid_{}'.format(state_name))
+        else:
+            is_valid = lambda x: True
+
+        if hasattr(self, "on_{}_change".format(state_name)):
+            on_change = hasattr(self, "on_{}_change".format(state_name))
+        else:
+            on_change = lambda x: None
+
+        if new_state != self._state_values[state_name] and is_valid(new_state):
+            on_change(new_state)
+            self._state_values[state_name] = new_state
+
+
+class Switch():
+    """
+    An MQTT switch
+    """
+
+    def __init__(self, name, entity_id):
+        super().__init__(name, entity_id)
+
+        self.add_state(
+            "state",
+            self.state_topic, "state_topic",
+            self.command_topic, "command_topic"
+        )
+
+    @property
+    def base_config(self):
+        return {
+            'payload_on': self.payload_on,
+            'payload_off': self.payload_off
+        }
+
+    def is_valid_state(self, state):
         return state in [self.payload_on, self.payload_off]
 
     def on_state_change(self, new_state):
@@ -68,38 +162,7 @@ class Switch():
 
         :param new_state: The state to set
         """
-        self.state = new_state
-
-    @property
-    def state(self):
-        """
-        The state of the switch. Must be one of ``self.payload_on`` or ``self.payload_off``
-
-        :getter: The last state the switch was set to (May be ``None`` if the state has never been set)
-        :setter: Record the state change, and report it to the broker
-        """
-        return self._state
-
-    @state.setter
-    def state(self, value):
-        if not self._is_valid_state(value):
-            raise ValueError("New state must be one of {}, {}".format(self.payload_on, self.payload_off))
-
-        self._state = value
-        logger.debug("Publishing new state {}".format(value))
-        self.client.publish(self.state_topic, value, retain=self.retain)
-
-    @property
-    def base_topic(self):
-        if self.discovery_prefix is None:
-            raise ValueError("Must call .connect() first")
-
-        path = filter(lambda x: x is not None, [self.discovery_prefix, "switch", self.node_id, self.entity_id])
-        return "/".join(path)
-
-    @property
-    def config_topic(self):
-        return "/".join([self.base_topic, "config"])
+        return
 
     @property
     def state_topic(self):
@@ -122,10 +185,3 @@ class Switch():
         Payload to use to indicate the switch is off. Defaults to ``"OFF"``
         """
         return "OFF"
-
-    @property
-    def retain(self):
-        """
-        Should the messages sent to the broker have the 'retain' flag set. Defaults to ``True``
-        """
-        return True
