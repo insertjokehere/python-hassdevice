@@ -100,6 +100,12 @@ class SimpleMQTTHost:
         if self.mqtt_client is not None:
             self.mqtt_client.loop_stop()
 
+    def _prep_config_val(self, arg, value):
+        if arg == "mqtt_port":
+            return int(value)
+        else:
+            return value
+
     def configure_from_args(self, args):
         vargs = vars(args)
         for arg in self.CONFIGURABLE_OPTIONS:
@@ -110,14 +116,14 @@ class SimpleMQTTHost:
         for arg in self.CONFIGURABLE_OPTIONS:
             arg_key = prefix + arg.upper()
             if arg_key in os.environ:
-                setattr(self, arg, os.environ[arg_key])
+                setattr(self, arg, self._prep_config_val(arg, os.environ[arg_key]))
 
     def configure_from_docker_secrets(self):
         for arg in self.CONFIGURABLE_OPTIONS:
             spath = os.path.join('/run/secrets', arg)
             if os.path.exists(spath):
                 value = open(spath).read().strip()
-                setattr(self, arg, value)
+                setattr(self, arg, self._prep_config_val(arg, value))
 
     @classmethod
     def add_argparse_params(cls, parser):
