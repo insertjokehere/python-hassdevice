@@ -23,14 +23,13 @@ class BaseDevice:
         self._state_values = {}
         self._state_topics = {}
         self._command_topics = {}
-        self._config = {}
 
     @property
     def component(self):
         raise NotImplemented
 
     @property
-    def base_config(self):
+    def _config(self):
         return {
             'name': self.name,
             'retain': self.retain
@@ -38,8 +37,8 @@ class BaseDevice:
 
     @property
     def config(self):
-        cfg = self.base_config
-        cfg.update(self._config)
+        cfg = self._config
+        cfg.update(self.base_config)
         return cfg
 
     def add_state(self, name, state_topic=None, state_topic_key=None, command_topic=None, command_topic_key=None):
@@ -72,10 +71,10 @@ class BaseDevice:
         self._state_values[state_name] = value
         logger.debug("publishing {} to {}".format(
             value,
-            self._expand_topic(self._state_topics[state_name])
+            self._state_topics[state_name]
         ))
         self.client.publish(
-            self._expand_topic(self._state_topics[state_name]),
+            self._state_topics[state_name],
             value,
             retain=self.retain
         )
@@ -132,6 +131,11 @@ class BaseDevice:
             self.config_topic
         ))
 
+        self.on_connect()
+
+    def on_connect(self):
+        return
+
     def _on_command(self, state_name, client, userdata, message):
         new_state = message.payload.decode('utf-8')
         logger.debug("Got command for new state {} {}, current state {}".format(new_state, state_name, self._state_values[state_name]))
@@ -151,19 +155,21 @@ class BaseDevice:
             self._state_values[state_name] = new_state
 
 
-class Switch():
+class Switch(BaseDevice):
     """
     An MQTT switch
     """
 
-    def __init__(self, name, entity_id):
-        super().__init__(name, entity_id)
-
+    def on_connect(self):
         self.add_state(
             "state",
             self.state_topic, "state_topic",
             self.command_topic, "command_topic"
         )
+
+    @property
+    def component(self):
+        return "switch"
 
     @property
     def base_config(self):
@@ -204,3 +210,59 @@ class Switch():
         Payload to use to indicate the switch is off. Defaults to ``"OFF"``
         """
         return "OFF"
+
+
+class Sensor(BaseDevice):
+    """
+    An MQTT sensor
+    """
+
+    def on_connect(self):
+        self.add_state(
+            "state",
+            self.state_topic, "state_topic"
+        )
+
+    @property
+    def component(self):
+        return "sensor"
+
+    @property
+    def state_topic(self):
+        return "/".join([self.base_topic, "state"])
+
+
+class BinarySensor(Sensor):
+
+    def __init__(self, name, entity_id, device_class="none"):
+        super().__init__(name, entity_id)
+        self.device_class = device_class
+
+    @property
+    def component(self):
+        return "binary_sensor"
+
+    @property
+    def payload_on(self):
+        """
+        Payload to use to indicate the switch is on. Defaults to ``"ON"``
+        """
+        return "ON"
+
+    @property
+    def payload_off(self):
+        """
+        Payload to use to indicate the switch is off. Defaults to ``"OFF"``
+        """
+        return "OFF"
+
+    @property
+    def base_config(self):
+        return {
+            'payload_on': self.payload_on,
+            'payload_off': self.payload_off,
+            'device_class': self.device_class
+        }
+
+    def is_valid_state(self, state):
+        return state in [self.payload_on, self.payload_off]
