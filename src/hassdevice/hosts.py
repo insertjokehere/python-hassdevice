@@ -108,9 +108,9 @@ class SimpleMQTTHost:
 
     def configure_from_env(self, prefix=""):
         for arg in self.CONFIGURABLE_OPTIONS:
-            arg = prefix + arg.upper()
-            if arg in os.environ:
-                setattr(self, arg, os.environ[arg])
+            arg_key = prefix + arg.upper()
+            if arg_key in os.environ:
+                setattr(self, arg, os.environ[arg_key])
 
     def configure_from_docker_secrets(self):
         for arg in self.CONFIGURABLE_OPTIONS:
