@@ -266,3 +266,45 @@ class BinarySensor(Sensor):
 
     def is_valid_state(self, state):
         return state in [self.payload_on, self.payload_off]
+
+
+class Light(BaseDevice):
+
+    FEATURE_BRIGHTNESS = "FEATURE_BRIGHTNESS"
+
+    def __init__(self, name, entity_id, features=None):
+        if features is None:
+            self._features = []
+        else:
+            self._features = features
+        super().__init__(name, entity_id)
+
+    def on_connect(self):
+        self.add_state(
+            "state",
+            self.state_topic, "state_topic",
+            self.command_topic, "command_topic"
+        )
+
+        if FEATURE_BRIGHTNESS in self._features:
+            self.add_state(
+                "brightness",
+                self.brightness_state_topic, "brightness_state_topic",
+                self.brightness_command_topic, "brightness_command_topic"
+            )
+
+    @property
+    def state_topic(self):
+        return "/".join([self.base_topic, "state"])
+
+    @property
+    def command_topic(self):
+        return "/".join([self.base_topic, "command"])
+
+    @property
+    def brightness_state_topic(self):
+        return "/".join([self.base_topic, "brightness_state"])
+
+    @property
+    def brightness_command_topic(self):
+        return "/".join([self.base_topic, "brightness_command"])
