@@ -54,6 +54,7 @@ class SimpleMQTTHost:
 
     def _on_connect(self, client, userdata, flags, rc):
         if rc == 0:
+            logger.info("Connected")
             self._connected = True
             while len(self._pending_devices) > 0 and self._connected:
                 device = self._pending_devices.pop()
@@ -62,7 +63,10 @@ class SimpleMQTTHost:
             logger.warning("Connection error: {}".format(rc))
 
     def _on_disconnect(self, client, userdata, rc):
-        self._connected = False
+        logger.warning("Disconnected from broker")
+        if self._connected:
+            logger.info("Reconnecting to broker...")
+            self.reconnect()
 
     def start(self, block=True):
         if self.mqtt_client is None:
